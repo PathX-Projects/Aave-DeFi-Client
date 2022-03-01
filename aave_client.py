@@ -1,7 +1,7 @@
 """
 PACKAGE REQUIREMENTS INSTALL COMMAND:
 
-pip install --upgrade web3 argparse requests
+pip install --upgrade web3 requests
 """
 
 import json
@@ -11,7 +11,6 @@ import requests
 import web3.eth
 from web3 import Web3
 from web3.gas_strategies.time_based import *
-import argparse
 from dataclasses import dataclass
 
 """RESOURCES:
