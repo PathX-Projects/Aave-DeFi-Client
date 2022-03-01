@@ -31,7 +31,16 @@ if run_test:
     #                                            lending_pool_contract=lending_pool)
 
 # Miscellaneous Test Cases:
-# token = aave_client.get_reserve_token("WETH")
-# amount = 1.2
-# print(f"{token.symbol} Decimal Units Amount:", int(amount * (10 ** int(token.decimals))))
+token = aave_client.get_reserve_token("WETH")
+amount = 1.2
+print(f"{token.symbol} Decimal Units Amount:", int(amount * (10 ** int(token.decimals))))
+
+borrow_token = aave_client.get_reserve_token("USDC")
+borrow_percentage = 1.0
+total_borrowable_in_eth, total_debt_eth = aave_client.get_user_data(lending_pool)
+weth_to_borrow_asset = aave_client.get_asset_price(base_address=token.address, quote_address=borrow_token.address)
+print(weth_to_borrow_asset)
+amount_to_borrow = weth_to_borrow_asset * (total_borrowable_in_eth * borrow_percentage)
+print("\nAmount to borrow:", amount_to_borrow, borrow_token.symbol)
+print(f"\nOutstanding Debt (in ETH): {total_debt_eth:.18f} ({total_debt_eth * weth_to_borrow_asset} DAI)")
 # So, 1.2 USDC will be 1.2 * 10 ^ 6
