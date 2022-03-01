@@ -32,8 +32,6 @@ https://www.youtube.com/watch?v=QfFO22lwSw4
 #   3. (TBD) Upload this to the pip registry as a module with dependencies
 
 """------------------------------ Dataclass to Reference Aave Reserve Token Attributes ------------------------------"""
-
-
 @dataclass
 class ReserveToken:
     """Dataclass for easily accessing Aave reserve token properties"""
@@ -47,8 +45,6 @@ class ReserveToken:
 
 
 """------------------------------------------ MAIN AAVE STAKING CLIENT ----------------------------------------------"""
-
-
 class AaveStakingClient:
     """Fully plug-and-play AAVE staking client in Python3"""
 
