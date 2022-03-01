@@ -24,4 +24,4 @@ REPAY_PERCENTAGE = 0.50  # Repay 50% of debts using DAI
 debt_asset = aave_client_kovan.get_reserve_token("DAI")  # Get the ReserveToken object for the underlying asset (DAI)
 transaction_hash = aave_client_kovan.repay_percentage(lending_pool_contract=lending_pool_contract,
                                                       repay_percentage=REPAY_PERCENTAGE, repay_asset=debt_asset)
-print(transaction_hash.hex())
+print(transaction_hash)
