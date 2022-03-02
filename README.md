@@ -16,4 +16,4 @@ Please install or have installed the following:
 
 ## How to Get Kovan Testnet WETH:
 1. Enter your public wallet address at [ethdrop.dev](https://ethdrop.dev/) and get ETH
-2. Use the [`usage_examples/get_kovan_weth.py`]() script 
+2. Use the [`usage_examples/get_kovan_weth.py`](https://github.com/PathX-Projects/Aave-DeFi-Client/blob/main/usage_examples/get_kovan_weth.py) script to convert your testnet ETH to ERC-20 WETH that can be deposited to Aave.
