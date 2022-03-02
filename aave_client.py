@@ -225,15 +225,20 @@ class AaveStakingClient:
 
         https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#getuseraccountdata
         """
-        (
-            total_collateral_eth,  # total collateral in ETH of the use (wei decimal unit)
-            total_debt_eth,  # total debt in ETH of the user (wei decimal unit)
-            available_borrow_eth,  # borrowing power left of the user (wei decimal unit)
-            current_liquidation_threshold,
-            # liquidation threshold of the user (1e4 format => percentage plus two decimals)
-            tlv,  # Loan To Value of the user (1e4 format => percentage plus two decimals)
-            health_factor,  # current health factor of the user
-        ) = lending_pool_contract.functions.getUserAccountData(self.wallet_address).call()
+        user_data = lending_pool_contract.functions.getUserAccountData(self.wallet_address).call()
+        try:
+            (
+                total_collateral_eth,  # total collateral in ETH of the use (wei decimal unit)
+                total_debt_eth,  # total debt in ETH of the user (wei decimal unit)
+                available_borrow_eth,  # borrowing power left of the user (wei decimal unit)
+                current_liquidation_threshold,
+                # liquidation threshold of the user (1e4 format => percentage plus two decimals)
+                tlv,  # Loan To Value of the user (1e4 format => percentage plus two decimals)
+                health_factor,  # current health factor of the user
+            ) = user_data
+        except TypeError:
+            raise Exception(f"Could not unpack user data due to a TypeError - Received: {user_data}")
+
         available_borrow_eth = Web3.fromWei(available_borrow_eth, "ether")
         total_collateral_eth = Web3.fromWei(total_collateral_eth, "ether")
         total_debt_eth = Web3.fromWei(total_debt_eth, "ether")
