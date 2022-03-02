@@ -86,8 +86,8 @@ class AaveStakingClient:
             raise ConnectionError(f"Could not connect to {self.active_network.net_name} network with RPC URL: "
                                   f"{self.active_network.rpc_url}")
 
-    def convert_eth_to_weth(self, amount_in_eth: float) -> web3.eth.HexBytes:
-        """Mints WETH by depositing ETH"""
+    def convert_eth_to_weth(self, amount_in_eth: float) -> str:
+        """Mints WETH by depositing ETH, then returns the transaction hash string"""
         print(f"Converting {amount_in_eth} ETH to WETH...")
         amount_in_wei = Web3.toWei(amount_in_eth, 'ether')
         nonce = self.w3.eth.getTransactionCount(self.wallet_address)
@@ -110,7 +110,7 @@ class AaveStakingClient:
         print(f"Here is the tx hash: {tx_hash.hex()}")
         self.w3.eth.wait_for_transaction_receipt(tx_hash)
         print("Received WETH!")
-        return tx_hash
+        return tx_hash.hex()
 
     def get_lending_pool(self) -> web3.eth.Contract:
         try:

@@ -13,3 +13,7 @@ Please install or have installed the following:
 - The only dependencies for usage of the aave_client are the package requirements (in [`requirements.txt`](https://github.com/PathX-Projects/Aave-DeFi-Client/blob/main/requirements.txt)), and the [`aave_client.py`](https://github.com/PathX-Projects/Aave-DeFi-Client/blob/main/aave_client.py) file.
 - You can find examples of the client's functionality in the [`usage_examples`](https://github.com/PathX-Projects/Aave-DeFi-Client/tree/main/usage_examples) directory.
 - You can safely move the [`aave_client.py`](https://github.com/PathX-Projects/Aave-DeFi-Client/blob/main/aave_client.py) file to different directories and use it with no issues, as long as the package requirements are satisfied.
+
+## How to Get Kovan Testnet WETH:
+1. Enter your public wallet address at [ethdrop.dev](https://ethdrop.dev/) and get ETH
+2. Use the [`usage_examples/get_kovan_weth.py`]() script 
