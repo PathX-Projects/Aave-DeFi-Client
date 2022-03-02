@@ -203,7 +203,7 @@ class AaveStakingClient:
             {
                 "chainId": self.active_network.chain_id,
                 "from": self.wallet_address,
-                "nonce": nonce,
+                "nonce": nonce + 1,
             }
         )
         signed_txn = self.w3.eth.account.sign_transaction(
