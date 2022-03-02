@@ -43,4 +43,5 @@ print(weth_to_borrow_asset)
 amount_to_borrow = weth_to_borrow_asset * (total_borrowable_in_eth * borrow_percentage)
 print("\nAmount to borrow:", amount_to_borrow, borrow_token.symbol)
 print(f"\nOutstanding Debt (in ETH): {total_debt_eth:.18f} ({total_debt_eth * weth_to_borrow_asset} DAI)")
+
 # So, 1.2 USDC will be 1.2 * 10 ^ 6

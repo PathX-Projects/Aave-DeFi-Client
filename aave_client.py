@@ -214,7 +214,7 @@ class AaveStakingClient:
         print(f"Deposited {deposit_amount} of {deposit_token.symbol}")
         return tx_hash.hex()
 
-    def get_user_data(self, lending_pool_contract: web3.eth.Contract) -> tuple[float, float]:
+    def get_user_data(self, lending_pool_contract: web3.eth.Contract) -> tuple:
         """
         - Fetches user account data (shown below) across all reserves
         - Only returns the borrowing power (in ETH), and the total user debt (in ETH)
