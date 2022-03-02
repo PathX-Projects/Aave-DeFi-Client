@@ -484,7 +484,7 @@ class AaveStakingClient:
             raise ValueError(
                 f"Could not match '{symbol}' with a valid reserve token on aave for the {self.active_network.net_name} network.")
 
-    def list_reserve_tokens(self) -> list[ReserveToken]:
+    def list_reserve_tokens(self) -> list:
         """Returns all Aave ReserveToken class objects stored on the active network"""
         return self.active_network.aave_tokens
 
