@@ -49,8 +49,8 @@ class AaveStakingClient:
     """Fully plug-and-play AAVE staking client in Python3"""
 
     def __init__(self, WALLET_ADDRESS: str, PRIVATE_WALLET_KEY: str,
-                 MAINNET_RPC_URL=None, KOVAN_RPC_URL=None,
-                 GAS_STRATEGY="medium"):
+                 MAINNET_RPC_URL: str = None, KOVAN_RPC_URL: str = None,
+                 GAS_STRATEGY: str = "medium"):
 
         self.private_key = PRIVATE_WALLET_KEY
         self.wallet_address = Web3.toChecksumAddress(WALLET_ADDRESS)
@@ -58,8 +58,7 @@ class AaveStakingClient:
         if KOVAN_RPC_URL is None and MAINNET_RPC_URL is None:
             raise Exception("Missing RPC URLs for all available choices. Must use at least one network configuration.")
         elif KOVAN_RPC_URL is not None and MAINNET_RPC_URL is not None:
-            raise Exception(
-                "Only one active network supported at a time. Please use either the Kovan or Mainnet network.")
+            raise Exception("Only one active network supported at a time. Please use either the Kovan or Mainnet network.")
         else:
             self.active_network = KovanConfig(KOVAN_RPC_URL) if KOVAN_RPC_URL is not None else MainnetConfig(
                 MAINNET_RPC_URL)
@@ -69,15 +68,21 @@ class AaveStakingClient:
         if GAS_STRATEGY.lower() == "fast":
             """Transaction mined within 60 seconds."""
             self.w3.eth.setGasPriceStrategy(fast_gas_price_strategy)
+            self.timeout = 60
         elif GAS_STRATEGY.lower() == "medium":
             """Transaction mined within 5 minutes."""
             self.w3.eth.setGasPriceStrategy(medium_gas_price_strategy)
+            self.timeout = 60 * 5
         elif GAS_STRATEGY.lower() == "slow":
             """Transaction mined within 1 hour."""
             self.w3.eth.setGasPriceStrategy(slow_gas_price_strategy)
+            self.timeout = 60 * 60
         elif GAS_STRATEGY.lower() == "glacial":
-            self.w3.eth.setGasPriceStrategy(glacial_gas_price_strategy)
             """Transaction mined within 24 hours."""
+            self.w3.eth.setGasPriceStrategy(glacial_gas_price_strategy)
+            self.timeout = 60 * 1440
+        else:
+            raise ValueError("Invalid gas strategy. Available gas strategies are 'fast', 'medium', 'slow', or 'glacial'")
 
     def _connect(self) -> Web3:
         try:
@@ -108,7 +113,8 @@ class AaveStakingClient:
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
         print(f"Here is the tx hash: {tx_hash.hex()}")
-        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
+        print(receipt)
         print("Received WETH!")
         return tx_hash.hex()
 
@@ -154,7 +160,7 @@ class AaveStakingClient:
             transaction, private_key=self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
 
         print(f"Approved {amount_in_decimal_units} for contract {lending_pool_address}")
         return tx_hash.hex()
@@ -210,7 +216,7 @@ class AaveStakingClient:
             transaction, private_key=self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
         print(f"Deposited {deposit_amount} of {deposit_token.symbol}")
         return tx_hash.hex()
 
@@ -333,7 +339,7 @@ class AaveStakingClient:
             transaction, private_key=self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
         print(f"\nBorrowed {borrow_amount:.{borrow_asset.decimals}f} of {borrow_asset.symbol}")
         print(f"Remaining Borrowing Power: {self.get_user_data(lending_pool_contract)[0]:.18f}")
         print(f"Transaction Hash: {tx_hash.hex()}")
@@ -419,7 +425,7 @@ class AaveStakingClient:
             transaction, self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
         print("Repaid!")
         return tx_hash.hex()
 
