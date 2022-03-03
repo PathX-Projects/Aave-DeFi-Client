@@ -29,7 +29,8 @@ https://www.youtube.com/watch?v=QfFO22lwSw4
 #   1. Find a way to dynamically pull ABIs instead of having the long dataclass
 #       - https://ethereum.stackexchange.com/questions/61821/how-to-dynamically-load-contracts-data-with-their-abi-from-etherscan-api/97070
 #   2. Add withdraw() functionality
-#   3. (TBD) Upload this to the pip registry as a module with dependencies
+#   3. Add functionality to create custom gas strategies
+#   4. (TBD) Upload this to the pip registry as a module with dependencies
 
 """------------------------------ Dataclass to Reference Aave Reserve Token Attributes ------------------------------"""
 @dataclass
@@ -113,6 +114,7 @@ class AaveStakingClient:
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
         print(f"Here is the tx hash: {tx_hash.hex()}")
+        print("Waiting for transaction receipt...")
         receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
         print(receipt)
         print("Received WETH!")
