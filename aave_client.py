@@ -116,7 +116,7 @@ class AaveStakingClient:
         print(f"Here is the tx hash: {tx_hash.hex()}")
         print("Waiting for transaction receipt...")
         receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
-        print(receipt)
+        # print(receipt)
         print("Received WETH!")
         return tx_hash.hex()
 
