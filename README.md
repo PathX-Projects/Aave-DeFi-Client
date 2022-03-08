@@ -1,7 +1,11 @@
 # Aave DeFi Client for Web3.py
 
 > NOTE: This is the beta version of the client. More docs to come...
- 
+
+# Overview:
+
+The Aave DeFi Client is a Python wrapper for the core functionality on the Aave DeFi lending protocol built using only two 3rd party packages, web3 and requests. The current supported functions are [`withdraw()`](https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#withdraw), [`deposit()`](https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#deposit), [`borrow()`](https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#borrow), and [`repay()`](https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#repay).
+
 ## Setup
 
 Please install or have installed the following:

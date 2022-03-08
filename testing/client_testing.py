@@ -1,4 +1,7 @@
+import datetime
 import os  # For fetching environment variables
+import time
+from pprint import pprint
 from aave_client import AaveStakingClient
 
 # Initialize Client:
@@ -37,11 +40,13 @@ print(f"{token.symbol} Decimal Units Amount:", int(amount * (10 ** int(token.dec
 
 borrow_token = aave_client.get_reserve_token("USDC")
 borrow_percentage = 1.0
-total_borrowable_in_eth, total_debt_eth = aave_client.get_user_data(lending_pool)
+total_borrowable_in_eth, total_debt_eth, total_collateral_eth = aave_client.get_user_data(lending_pool)
+print("Borrowable (ETH):", total_borrowable_in_eth, "Debt (ETH):", total_debt_eth, "Collateral (ETH):", total_collateral_eth)
 weth_to_borrow_asset = aave_client.get_asset_price(base_address=token.address, quote_address=borrow_token.address)
 print(weth_to_borrow_asset)
 amount_to_borrow = weth_to_borrow_asset * (total_borrowable_in_eth * borrow_percentage)
 print("\nAmount to borrow:", amount_to_borrow, borrow_token.symbol)
 print(f"\nOutstanding Debt (in ETH): {total_debt_eth:.18f} ({total_debt_eth * weth_to_borrow_asset} DAI)")
 
+pprint(aave_client.list_reserve_tokens())
 # So, 1.2 USDC will be 1.2 * 10 ^ 6

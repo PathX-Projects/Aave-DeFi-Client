@@ -15,11 +15,11 @@ aave_client_kovan = AaveStakingClient(WALLET_ADDRESS=os.getenv('WALLET_ADDRESS')
 """Obstantiate the instance of the Aave lending pool smart contract"""
 lending_pool_contract = aave_client_kovan.get_lending_pool()
 
-"""Get the ReserveToken object for the desired underlying asset to deposit"""
-deposit_token = aave_client_kovan.get_reserve_token(symbol="WETH")
+"""Get the ReserveToken object for the desired underlying asset to withdraw"""
+withdraw_token = aave_client_kovan.get_reserve_token(symbol="WETH")
 
-"""Deposit tokens"""
-DEPOSIT_AMOUNT = 0.0001  # As in 0.0001 WETH to be deposited
-deposit_hash = aave_client_kovan.deposit(deposit_token=deposit_token, deposit_amount=DEPOSIT_AMOUNT,
-                                         lending_pool_contract=lending_pool_contract)
-print("Transaction Hash:", deposit_hash)
+"""Withdraw tokens"""
+WITHDRAW_AMOUNT = 0.0001  # As in 0.0001 WETH to be withdrawn from Aave
+withdraw_transaction_receipt = aave_client_kovan.withdraw(withdraw_token=withdraw_token, withdraw_amount=WITHDRAW_AMOUNT,
+                                                          lending_pool_contract=lending_pool_contract)
+print("TransactionReceipt Object:", withdraw_transaction_receipt)

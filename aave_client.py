@@ -4,9 +4,11 @@ PACKAGE REQUIREMENTS INSTALL COMMAND:
 pip install --upgrade web3 requests
 """
 
+from pprint import pprint
 import json
 import os
 import time
+from datetime import datetime
 import requests
 import web3.eth
 from web3 import Web3
@@ -43,6 +45,25 @@ class ReserveToken:
     symbol: str
     address: str
     decimals: int
+
+
+"""--------------------------- Dataclass to Neatly Handle Transaction Receipts ----------------------------"""
+@dataclass
+class TransactionReceipt:
+    """Dataclass for easily accessing transaction receipt properties"""
+    hash: str
+    timestamp: int  # Unix timestamp
+    datetime: str  # Formatted UTC datetime string: 'YYYY-MM-DD HH:MM:SS'
+    contract_address: str
+    from_address: str
+    to_address: str
+    gas_price: float  # The full amount in ETH paid for gas
+    asset_symbol: str
+    asset_address: str
+    asset_amount: float  # In the token amount (not decimal units)
+    asset_amount_decimal_units: int  # In decimal units (amount * 10^asset decimals)
+    interest_rate_mode: str  # "stable", "variable", or None
+    operation: str  # The operation description (e.g. deposit, borrow)
 
 
 """------------------------------------------ MAIN AAVE STAKING CLIENT ----------------------------------------------"""
@@ -92,7 +113,28 @@ class AaveStakingClient:
             raise ConnectionError(f"Could not connect to {self.active_network.net_name} network with RPC URL: "
                                   f"{self.active_network.rpc_url}")
 
-    def convert_eth_to_weth(self, amount_in_eth: float) -> str:
+    def process_transaction_receipt(self, tx_hash: web3.eth.HexBytes, asset_amount: float,
+                                    reserve_token: ReserveToken, operation: str, interest_rate_mode: str = None,
+                                    approval_gas_cost: float = 0) -> TransactionReceipt:
+        print(f"Awaiting transaction receipt for transaction hash: {tx_hash.hex()} (timeout = {self.timeout} seconds)")
+        receipt = dict(self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout))
+
+        verification_timestamp = datetime.utcnow()
+        gas_fee = Web3.fromWei(int(receipt['effectiveGasPrice']) * int(receipt['gasUsed']), 'ether') + approval_gas_cost
+
+        return TransactionReceipt(hash=tx_hash.hex(),
+                                  timestamp=int(datetime.timestamp(verification_timestamp)),
+                                  datetime=verification_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                                  contract_address=receipt['contractAddress'],
+                                  from_address=receipt['from'],
+                                  to_address=receipt['to'],
+                                  gas_price=gas_fee,
+                                  asset_symbol=reserve_token.symbol, asset_address=reserve_token.address,
+                                  asset_amount=asset_amount,
+                                  asset_amount_decimal_units=self.convert_to_decimal_units(reserve_token, asset_amount),
+                                  interest_rate_mode=interest_rate_mode, operation=operation)
+
+    def convert_eth_to_weth(self, amount_in_eth: float) -> TransactionReceipt:
         """Mints WETH by depositing ETH, then returns the transaction hash string"""
         print(f"Converting {amount_in_eth} ETH to WETH...")
         amount_in_wei = Web3.toWei(amount_in_eth, 'ether')
@@ -113,12 +155,11 @@ class AaveStakingClient:
             transaction, private_key=self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        print(f"Here is the tx hash: {tx_hash.hex()}")
-        print("Waiting for transaction receipt...")
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
-        # print(receipt)
+        receipt = self.process_transaction_receipt(tx_hash, asset_amount=amount_in_eth,
+                                                   reserve_token=self.get_reserve_token("WETH"),
+                                                   operation="Convert ETH to WETH")
         print("Received WETH!")
-        return tx_hash.hex()
+        return receipt
 
     def get_lending_pool(self) -> web3.eth.Contract:
         try:
@@ -139,12 +180,14 @@ class AaveStakingClient:
             raise Exception(f"Could not fetch the Aave lending pool smart contract - Error: {exc}")
 
     def approve_erc20(self, erc20_address: str, lending_pool_contract: web3.eth.Contract, amount_in_decimal_units: int,
-                      nonce=None) -> str:
+                      nonce=None) -> tuple:
         """
         Approve the smart contract to take the tokens out of the wallet
         For lending pool transactions, the 'lending_pool_contract' is the lending pool contract's address.
+
+        Returns a tuple of the following:
+            (transaction hash string, approval gas cost)
         """
-        print("Approving ERC20...")
         nonce = nonce if nonce else self.w3.eth.getTransactionCount(self.wallet_address)
 
         lending_pool_address = Web3.toChecksumAddress(lending_pool_contract.address)
@@ -162,18 +205,20 @@ class AaveStakingClient:
             transaction, private_key=self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
+        receipt = dict(self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout))
 
-        print(f"Approved {amount_in_decimal_units} for contract {lending_pool_address}")
-        return tx_hash.hex()
+        print(f"Approved {amount_in_decimal_units} of {erc20_address} for contract {lending_pool_address}")
+        return tx_hash.hex(), Web3.fromWei(int(receipt['effectiveGasPrice']) * int(receipt['gasUsed']), 'ether')
 
-    def deposit_to_aave(self, deposit_token: ReserveToken, deposit_amount: float,
-                        lending_pool_contract: web3.eth.Contract, nonce=None) -> str:
+    def withdraw(self, withdraw_token: ReserveToken, withdraw_amount: float, lending_pool_contract: web3.eth.Contract,
+                 nonce=None) -> TransactionReceipt:
         """
-        Parameters:
-            deposit_token: The ReserveToken object of the token to be deposited/collateralized on Aave
+        Withdraws the amount of the withdraw_token from Aave, and burns the corresponding aToken.
 
-            deposit_amount: The amount of the 'deposit_token' to deposit on Aave (e.g. 0.001 ETH)
+        Parameters:
+            withdraw_token: The ReserveToken object of the token to be withdrawn from Aave.
+
+            withdraw_amount:  The amount of the 'withdraw_token' to withdraw from Aave (e.g. 0.001 WETH)
 
             lending_pool_contract: The lending pool contract object, obstantiated using self.get_lending_pool()
 
@@ -181,12 +226,84 @@ class AaveStakingClient:
                    the user's wallet set at self.wallet_address.
 
         Returns:
-            The transaction hash address as a string
-
-        Deposits x 'amount_in_decimal_units' of the 'deposit_token' to Aave
+            The TransactionReceipt object - See line 52 for datapoints reference
 
         Smart Contract Reference:
-        https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#deposit
+            https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#withdraw
+        """
+        nonce = nonce if nonce else self.w3.eth.getTransactionCount(self.wallet_address)
+        amount_in_decimal_units = self.convert_to_decimal_units(withdraw_token, withdraw_amount)
+
+        # First, attempt to approve the transaction:
+        print(f"Approving transaction to withdraw {withdraw_amount:.{withdraw_token.decimals}f} of {withdraw_token.symbol} from Aave...")
+        try:
+            approval_hash, approval_gas = self.approve_erc20(erc20_address=withdraw_token.address,
+                                                             lending_pool_contract=lending_pool_contract,
+                                                             amount_in_decimal_units=amount_in_decimal_units,
+                                                             nonce=nonce)
+        except Exception as exc:
+            raise UserWarning(f"Could not approve withdraw transaction - Error Code {exc}")
+
+        # Second, if the transaction is approved, create the transaction to deposit the tokens to Aave:
+        print(f"Withdrawing {withdraw_amount} of {withdraw_token.symbol} from Aave...")
+        function_call = lending_pool_contract.functions.withdraw(withdraw_token.address,
+                                                                 amount_in_decimal_units,
+                                                                 self.wallet_address)
+        transaction = function_call.buildTransaction(
+            {
+                "chainId": self.active_network.chain_id,
+                "from": self.wallet_address,
+                "nonce": nonce + 1,
+            }
+        )
+        signed_txn = self.w3.eth.account.sign_transaction(
+            transaction, private_key=self.private_key
+        )
+        tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        receipt = self.process_transaction_receipt(tx_hash, withdraw_amount, withdraw_token,
+                                                   operation="Withdraw", approval_gas_cost=approval_gas)
+        # receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
+        print(f"Successfully withdrew {withdraw_amount:.{withdraw_token.decimals}f} of {withdraw_token.symbol} from Aave")
+        return receipt
+
+    def withdraw_percentage(self, withdraw_token: ReserveToken, withdraw_percentage: float,
+                            lending_pool_contract: web3.eth.Contract, nonce=None) -> TransactionReceipt:
+        """Same parameters as the self.withdraw() function, except instead of 'withdraw_amount', you will pass the
+        percentage of total available collateral on Aave that you would like to withdraw from in the 'withdraw_percentage'
+        parameter in the following format: 0.0 (0% of borrowing power) to 1.0 (100% of borrowing power)"""
+
+        if withdraw_percentage > 1.0:
+            raise ValueError("Cannot withdraw more than 100% of available collateral of Aave. "
+                             "Please pass a value between 0.0 and 1.0")
+
+        # Calculate withdraw amount by multiplying the total collateral on Aave by the withdraw_percentage parameter.
+        total_collateral = self.get_user_data(lending_pool_contract)[2]
+        weth_to_withdraw_asset = self.get_asset_price(base_address=self.get_reserve_token("WETH").address,
+                                                      quote_address=withdraw_token.address)
+        withdraw_amount = weth_to_withdraw_asset * (total_collateral * withdraw_percentage)
+
+        return self.withdraw(withdraw_token, withdraw_amount, lending_pool_contract, nonce)
+
+    def deposit(self, deposit_token: ReserveToken, deposit_amount: float,
+                lending_pool_contract: web3.eth.Contract, nonce=None) -> TransactionReceipt:
+        """
+        Deposits the 'deposit_amount' of the 'deposit_token' to Aave collateral.
+
+        Parameters:
+            deposit_token: The ReserveToken object of the token to be deposited/collateralized on Aave
+
+            deposit_amount: The amount of the 'deposit_token' to deposit on Aave (e.g. 0.001 WETH)
+
+            lending_pool_contract: The lending pool contract object, obstantiated using self.get_lending_pool()
+
+            nonce: Manually specify the transaction count/ID. Leave as None to get the current transaction count from
+                   the user's wallet set at self.wallet_address.
+
+        Returns:
+            The TransactionReceipt object - See line 52 for datapoints reference
+
+        Smart Contract Reference:
+            https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#deposit
         """
 
         nonce = nonce if nonce else self.w3.eth.getTransactionCount(self.wallet_address)
@@ -196,8 +313,10 @@ class AaveStakingClient:
         # First, attempt to approve the transaction:
         print(f"Approving transaction to deposit {deposit_amount} of {deposit_token.symbol} to Aave...")
         try:
-            self.approve_erc20(erc20_address=deposit_token.address, lending_pool_contract=lending_pool_contract,
-                               amount_in_decimal_units=amount_in_decimal_units, nonce=nonce)
+            approval_hash, approval_gas = self.approve_erc20(erc20_address=deposit_token.address,
+                                                             lending_pool_contract=lending_pool_contract,
+                                                             amount_in_decimal_units=amount_in_decimal_units,
+                                                             nonce=nonce)
         except Exception as exc:
             raise UserWarning(f"Could not approve deposit transaction - Error Code {exc}")
 
@@ -218,9 +337,11 @@ class AaveStakingClient:
             transaction, private_key=self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
-        print(f"Deposited {deposit_amount} of {deposit_token.symbol}")
-        return tx_hash.hex()
+        receipt = self.process_transaction_receipt(tx_hash, deposit_amount, deposit_token,
+                                                   operation="Deposit", approval_gas_cost=approval_gas)
+        # receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
+        print(f"Successfully deposited {deposit_amount} of {deposit_token.symbol}")
+        return receipt
 
     def get_user_data(self, lending_pool_contract: web3.eth.Contract) -> tuple:
         """
@@ -253,7 +374,7 @@ class AaveStakingClient:
         # print(f"Total Collateral Assets: {total_collateral_eth:.18f} ETH")
         # print(f"Total Borrowed Assets: {total_debt_eth:.18f} ETH")
         # print(f"Total Borrowing Power: {available_borrow_eth:.18f} ETH")
-        return float(available_borrow_eth), float(total_debt_eth)
+        return float(available_borrow_eth), float(total_debt_eth), float(total_collateral_eth)
 
     def get_asset_price(self, base_address: str, quote_address: str = None) -> float:
         """
@@ -289,7 +410,7 @@ class AaveStakingClient:
         return float(latest_price)
 
     def borrow(self, lending_pool_contract: web3.eth.Contract, borrow_amount: float, borrow_asset: ReserveToken,
-               nonce=None, interest_rate_mode: str = "stable") -> str:
+               nonce=None, interest_rate_mode: str = "stable") -> TransactionReceipt:
         """
         Borrows the underlying asset (erc20_address) as long as the amount is within the confines of
         the user's buying power.
@@ -306,12 +427,13 @@ class AaveStakingClient:
                                 or 'variable' interest rate.
 
         Returns:
-            The transaction hash string
+            The TransactionReceipt object - See line 52 for datapoints reference
 
         Smart Contract Docs:
         https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#borrow
         """
 
+        rate_mode_str = interest_rate_mode
         if interest_rate_mode.lower() == "stable":
             interest_rate_mode = 1
         elif interest_rate_mode.lower() == "variable":
@@ -341,18 +463,20 @@ class AaveStakingClient:
             transaction, private_key=self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
+        receipt = self.process_transaction_receipt(tx_hash, borrow_amount, borrow_asset, operation="Borrow",
+                                                   interest_rate_mode=rate_mode_str)
+
         print(f"\nBorrowed {borrow_amount:.{borrow_asset.decimals}f} of {borrow_asset.symbol}")
         print(f"Remaining Borrowing Power: {self.get_user_data(lending_pool_contract)[0]:.18f}")
         print(f"Transaction Hash: {tx_hash.hex()}")
-        return tx_hash.hex()
+        return receipt
 
     def convert_to_decimal_units(self, reserve_token: ReserveToken, token_amount: float) -> int:
         """integer units i.e amt * 10 ^ (decimal units of the token). So, 1.2 USDC will be 1.2 * 10 ^ 6"""
         return int(token_amount * (10 ** int(reserve_token.decimals)))
 
     def borrow_percentage(self, lending_pool_contract: web3.eth.Contract, borrow_percentage: float,
-                          borrow_asset: ReserveToken, nonce=None, interest_rate_mode: str = "stable") -> str:
+                          borrow_asset: ReserveToken, nonce=None, interest_rate_mode: str = "stable") -> TransactionReceipt:
         """Same parameters as the self.borrow() function, except instead of 'borrow_amount', you will pass the
         percentage of borrowing power that you would like to borrow from in the 'borrow_percentage' parameter in the
         following format: 0.0 (0% of borrowing power) to 1.0 (100% of borrowing power)"""
@@ -372,7 +496,7 @@ class AaveStakingClient:
                            borrow_asset=borrow_asset, nonce=nonce, interest_rate_mode=interest_rate_mode)
 
     def repay(self, lending_pool_contract: web3.eth.Contract, repay_amount: float, repay_asset: ReserveToken,
-              nonce=None, interest_rate_mode: str = "stable") -> str:
+              nonce=None, interest_rate_mode: str = "stable") -> TransactionReceipt:
         """
         Parameters:
             lending_pool_contract: The web3.eth.Contract object returned by the self.get_lending_pool() function.
@@ -384,13 +508,14 @@ class AaveStakingClient:
             interest_rate_mode: the type of borrow debt,'stable' or 'variable'
 
         Returns:
-            The transaction hash address as a string
+            The TransactionReceipt object - See line 52 for datapoints reference
 
         https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#repay
         """
         print("Time to repay...")
         nonce = nonce if nonce else self.w3.eth.getTransactionCount(self.wallet_address)
 
+        rate_mode_str = interest_rate_mode
         if interest_rate_mode == "stable":
             interest_rate_mode = 1
         else:
@@ -401,8 +526,10 @@ class AaveStakingClient:
         # First, attempt to approve the transaction:
         print(f"Approving transaction to repay {repay_amount} of {repay_asset.symbol} to Aave...")
         try:
-            self.approve_erc20(erc20_address=repay_asset.address, lending_pool_contract=lending_pool_contract,
-                               amount_in_decimal_units=amount_in_decimal_units, nonce=nonce)
+            approval_hash, approval_gas = self.approve_erc20(erc20_address=repay_asset.address,
+                                                             lending_pool_contract=lending_pool_contract,
+                                                             amount_in_decimal_units=amount_in_decimal_units,
+                                                             nonce=nonce)
             print("Transaction approved!")
         except Exception as exc:
             raise UserWarning(f"Could not approve repay transaction - Error Code {exc}")
@@ -427,12 +554,14 @@ class AaveStakingClient:
             transaction, self.private_key
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout)
-        print("Repaid!")
-        return tx_hash.hex()
+        receipt = self.process_transaction_receipt(tx_hash, repay_amount, repay_asset, "Repay",
+                                                   interest_rate_mode=rate_mode_str, approval_gas_cost=approval_gas)
+        print(f"Repaid {repay_amount} {repay_asset.symbol}  |  "
+              f"{self.get_user_data(lending_pool_contract)[1]:.18f} ETH worth of debt remaining.")
+        return receipt
 
     def repay_percentage(self, lending_pool_contract: web3.eth.Contract, repay_percentage: float,
-                         repay_asset: ReserveToken, nonce=None):
+                         repay_asset: ReserveToken, nonce=None) -> TransactionReceipt:
         """
         Same parameters as the self.repay() function, except instead of 'repay_amount', you will pass the
         percentage of outstanding debt that you would like to repay from in the 'repay_percentage' parameter using the
