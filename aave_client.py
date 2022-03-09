@@ -15,24 +15,6 @@ from web3 import Web3
 from web3.gas_strategies.time_based import *
 from dataclasses import dataclass
 
-"""RESOURCES:
-https://github.com/PatrickAlphaC/aave_web3_py
-https://blog.chain.link/blockchain-fintech-defi-tutorial-lending-borrowing-python/
-Aave V2 REST API (Primarily for data): https://aave-api-v2.aave.com/#/
-Kovan Testnet ETH Faucet: https://ethdrop.dev/
-AAVE V2 Docs: https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#getuseraccountdata
-
-Kovan Testnet ETH Faucet Link: https://github.com/kovan-testnet/faucet
-AAVE Kovan Testnet Tokens: https://aave.github.io/aave-addresses/kovan.json
-https://www.youtube.com/watch?v=QfFO22lwSw4
-"""
-
-# TODO:
-#   1. Find a way to dynamically pull ABIs instead of having the long dataclass
-#       - https://ethereum.stackexchange.com/questions/61821/how-to-dynamically-load-contracts-data-with-their-abi-from-etherscan-api/97070
-#   2. Add withdraw() functionality
-#   3. Add functionality to create custom gas strategies
-#   4. (TBD) Upload this to the pip registry as a module with dependencies
 
 """------------------------------ Dataclass to Reference Aave Reserve Token Attributes ------------------------------"""
 @dataclass
