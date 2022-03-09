@@ -49,7 +49,7 @@ class ReserveToken:
 
 """--------------------------- Dataclass to Neatly Handle Transaction Receipts ----------------------------"""
 @dataclass
-class TransactionReceipt:
+class AaveTrade:
     """Dataclass for easily accessing transaction receipt properties"""
     hash: str
     timestamp: int  # Unix timestamp
@@ -69,7 +69,6 @@ class TransactionReceipt:
 """------------------------------------------ MAIN AAVE STAKING CLIENT ----------------------------------------------"""
 class AaveStakingClient:
     """Fully plug-and-play AAVE staking client in Python3"""
-
     def __init__(self, WALLET_ADDRESS: str, PRIVATE_WALLET_KEY: str,
                  MAINNET_RPC_URL: str = None, KOVAN_RPC_URL: str = None,
                  GAS_STRATEGY: str = "medium"):
@@ -115,26 +114,26 @@ class AaveStakingClient:
 
     def process_transaction_receipt(self, tx_hash: web3.eth.HexBytes, asset_amount: float,
                                     reserve_token: ReserveToken, operation: str, interest_rate_mode: str = None,
-                                    approval_gas_cost: float = 0) -> TransactionReceipt:
+                                    approval_gas_cost: float = 0) -> AaveTrade:
         print(f"Awaiting transaction receipt for transaction hash: {tx_hash.hex()} (timeout = {self.timeout} seconds)")
         receipt = dict(self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.timeout))
 
         verification_timestamp = datetime.utcnow()
         gas_fee = Web3.fromWei(int(receipt['effectiveGasPrice']) * int(receipt['gasUsed']), 'ether') + approval_gas_cost
 
-        return TransactionReceipt(hash=tx_hash.hex(),
-                                  timestamp=int(datetime.timestamp(verification_timestamp)),
-                                  datetime=verification_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-                                  contract_address=receipt['contractAddress'],
-                                  from_address=receipt['from'],
-                                  to_address=receipt['to'],
-                                  gas_price=gas_fee,
-                                  asset_symbol=reserve_token.symbol, asset_address=reserve_token.address,
-                                  asset_amount=asset_amount,
-                                  asset_amount_decimal_units=self.convert_to_decimal_units(reserve_token, asset_amount),
-                                  interest_rate_mode=interest_rate_mode, operation=operation)
+        return AaveTrade(hash=tx_hash.hex(),
+                         timestamp=int(datetime.timestamp(verification_timestamp)),
+                         datetime=verification_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                         contract_address=receipt['contractAddress'],
+                         from_address=receipt['from'],
+                         to_address=receipt['to'],
+                         gas_price=gas_fee,
+                         asset_symbol=reserve_token.symbol, asset_address=reserve_token.address,
+                         asset_amount=asset_amount,
+                         asset_amount_decimal_units=self.convert_to_decimal_units(reserve_token, asset_amount),
+                         interest_rate_mode=interest_rate_mode, operation=operation)
 
-    def convert_eth_to_weth(self, amount_in_eth: float) -> TransactionReceipt:
+    def convert_eth_to_weth(self, amount_in_eth: float) -> AaveTrade:
         """Mints WETH by depositing ETH, then returns the transaction hash string"""
         print(f"Converting {amount_in_eth} ETH to WETH...")
         amount_in_wei = Web3.toWei(amount_in_eth, 'ether')
@@ -211,7 +210,7 @@ class AaveStakingClient:
         return tx_hash.hex(), Web3.fromWei(int(receipt['effectiveGasPrice']) * int(receipt['gasUsed']), 'ether')
 
     def withdraw(self, withdraw_token: ReserveToken, withdraw_amount: float, lending_pool_contract: web3.eth.Contract,
-                 nonce=None) -> TransactionReceipt:
+                 nonce=None) -> AaveTrade:
         """
         Withdraws the amount of the withdraw_token from Aave, and burns the corresponding aToken.
 
@@ -226,7 +225,7 @@ class AaveStakingClient:
                    the user's wallet set at self.wallet_address.
 
         Returns:
-            The TransactionReceipt object - See line 52 for datapoints reference
+            The AaveTrade object - See line 52 for datapoints reference
 
         Smart Contract Reference:
             https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#withdraw
@@ -267,7 +266,7 @@ class AaveStakingClient:
         return receipt
 
     def withdraw_percentage(self, withdraw_token: ReserveToken, withdraw_percentage: float,
-                            lending_pool_contract: web3.eth.Contract, nonce=None) -> TransactionReceipt:
+                            lending_pool_contract: web3.eth.Contract, nonce=None) -> AaveTrade:
         """Same parameters as the self.withdraw() function, except instead of 'withdraw_amount', you will pass the
         percentage of total available collateral on Aave that you would like to withdraw from in the 'withdraw_percentage'
         parameter in the following format: 0.0 (0% of borrowing power) to 1.0 (100% of borrowing power)"""
@@ -285,7 +284,7 @@ class AaveStakingClient:
         return self.withdraw(withdraw_token, withdraw_amount, lending_pool_contract, nonce)
 
     def deposit(self, deposit_token: ReserveToken, deposit_amount: float,
-                lending_pool_contract: web3.eth.Contract, nonce=None) -> TransactionReceipt:
+                lending_pool_contract: web3.eth.Contract, nonce=None) -> AaveTrade:
         """
         Deposits the 'deposit_amount' of the 'deposit_token' to Aave collateral.
 
@@ -300,7 +299,7 @@ class AaveStakingClient:
                    the user's wallet set at self.wallet_address.
 
         Returns:
-            The TransactionReceipt object - See line 52 for datapoints reference
+            The AaveTrade object - See line 52 for datapoints reference
 
         Smart Contract Reference:
             https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#deposit
@@ -410,7 +409,7 @@ class AaveStakingClient:
         return float(latest_price)
 
     def borrow(self, lending_pool_contract: web3.eth.Contract, borrow_amount: float, borrow_asset: ReserveToken,
-               nonce=None, interest_rate_mode: str = "stable") -> TransactionReceipt:
+               nonce=None, interest_rate_mode: str = "stable") -> AaveTrade:
         """
         Borrows the underlying asset (erc20_address) as long as the amount is within the confines of
         the user's buying power.
@@ -427,7 +426,7 @@ class AaveStakingClient:
                                 or 'variable' interest rate.
 
         Returns:
-            The TransactionReceipt object - See line 52 for datapoints reference
+            The AaveTrade object - See line 52 for datapoints reference
 
         Smart Contract Docs:
         https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#borrow
@@ -476,7 +475,7 @@ class AaveStakingClient:
         return int(token_amount * (10 ** int(reserve_token.decimals)))
 
     def borrow_percentage(self, lending_pool_contract: web3.eth.Contract, borrow_percentage: float,
-                          borrow_asset: ReserveToken, nonce=None, interest_rate_mode: str = "stable") -> TransactionReceipt:
+                          borrow_asset: ReserveToken, nonce=None, interest_rate_mode: str = "stable") -> AaveTrade:
         """Same parameters as the self.borrow() function, except instead of 'borrow_amount', you will pass the
         percentage of borrowing power that you would like to borrow from in the 'borrow_percentage' parameter in the
         following format: 0.0 (0% of borrowing power) to 1.0 (100% of borrowing power)"""
@@ -496,7 +495,7 @@ class AaveStakingClient:
                            borrow_asset=borrow_asset, nonce=nonce, interest_rate_mode=interest_rate_mode)
 
     def repay(self, lending_pool_contract: web3.eth.Contract, repay_amount: float, repay_asset: ReserveToken,
-              nonce=None, interest_rate_mode: str = "stable") -> TransactionReceipt:
+              nonce=None, interest_rate_mode: str = "stable") -> AaveTrade:
         """
         Parameters:
             lending_pool_contract: The web3.eth.Contract object returned by the self.get_lending_pool() function.
@@ -508,7 +507,7 @@ class AaveStakingClient:
             interest_rate_mode: the type of borrow debt,'stable' or 'variable'
 
         Returns:
-            The TransactionReceipt object - See line 52 for datapoints reference
+            The AaveTrade object - See line 52 for datapoints reference
 
         https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#repay
         """
@@ -561,7 +560,7 @@ class AaveStakingClient:
         return receipt
 
     def repay_percentage(self, lending_pool_contract: web3.eth.Contract, repay_percentage: float,
-                         repay_asset: ReserveToken, nonce=None) -> TransactionReceipt:
+                         repay_asset: ReserveToken, nonce=None) -> AaveTrade:
         """
         Same parameters as the self.repay() function, except instead of 'repay_amount', you will pass the
         percentage of outstanding debt that you would like to repay from in the 'repay_percentage' parameter using the

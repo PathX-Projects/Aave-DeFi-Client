@@ -23,4 +23,4 @@ WITHDRAW_PERCENTAGE = 0.50  # As in you'd like to withdraw WETH amounting to 50%
 withdraw_transaction_receipt = aave_client_kovan.withdraw_percentage(withdraw_token=withdraw_token,
                                                                      withdraw_percentage=WITHDRAW_PERCENTAGE,
                                                                      lending_pool_contract=lending_pool_contract)
-print("TransactionReceipt Object:", withdraw_transaction_receipt)
+print("AaveTrade Object:", withdraw_transaction_receipt)

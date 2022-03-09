@@ -22,4 +22,4 @@ withdraw_token = aave_client_kovan.get_reserve_token(symbol="WETH")
 WITHDRAW_AMOUNT = 0.0001  # As in 0.0001 WETH to be withdrawn from Aave
 withdraw_transaction_receipt = aave_client_kovan.withdraw(withdraw_token=withdraw_token, withdraw_amount=WITHDRAW_AMOUNT,
                                                           lending_pool_contract=lending_pool_contract)
-print("TransactionReceipt Object:", withdraw_transaction_receipt)
+print("AaveTrade Object:", withdraw_transaction_receipt)
