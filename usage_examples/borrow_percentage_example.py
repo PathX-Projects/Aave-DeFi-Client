@@ -16,8 +16,8 @@ aave_client_kovan = AaveStakingClient(WALLET_ADDRESS=os.getenv('WALLET_ADDRESS')
 lending_pool_contract = aave_client_kovan.get_lending_pool()
 
 """Get the current borrowing power from the Aave client"""
-total_borrowing_power, total_debt = aave_client_kovan.get_user_data(lending_pool_contract)
-print(f"Total Borrowing Power (in ETH): {total_borrowing_power:.18f}")
+borrowable, debt, collateral = aave_client_kovan.get_user_data(lending_pool_contract)
+print(f"Total Borrowing Power (in ETH): {borrowable:.18f}")
 
 """Borrow DAI as a percentage of borrowing power"""
 borrow_token = aave_client_kovan.get_reserve_token("DAI")  # Get the ReserveToken object for our underlying asset (DAI)
