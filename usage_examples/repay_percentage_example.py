@@ -1,5 +1,5 @@
 import os  # For fetching environment variables
-from aave_client import AaveStakingClient
+from aave_python import AaveStakingClient
 
 """Obstantiate the client using the Kovan testnet"""
 aave_client_kovan = AaveStakingClient(WALLET_ADDRESS=os.getenv('WALLET_ADDRESS'),
