@@ -1,4 +1,7 @@
 import os  # For fetching environment variables
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from aave_python import AaveStakingClient
 
 """Obstantiate the client using the Kovan testnet"""
