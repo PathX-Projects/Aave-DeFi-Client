@@ -20,7 +20,7 @@ class AaveStakingClient:
     """Fully plug-and-play AAVE staking client in Python3"""
     def __init__(self, WALLET_ADDRESS: str, PRIVATE_WALLET_KEY: str,
                  MAINNET_RPC_URL: str = None, KOVAN_RPC_URL: str = None,
-                 GAS_STRATEGY: str = "medium"):
+                 GAS_STRATEGY: str = "medium", web3_instance: Web3 = None):
 
         self.private_key = PRIVATE_WALLET_KEY
         self.wallet_address = Web3.toChecksumAddress(WALLET_ADDRESS)
@@ -33,7 +33,7 @@ class AaveStakingClient:
             self.active_network = KovanConfig(KOVAN_RPC_URL) if KOVAN_RPC_URL is not None else MainnetConfig(
                 MAINNET_RPC_URL)
 
-        self.w3 = self._connect()
+        self.w3 = self._connect() if web3_instance is None else web3_instance
 
         if GAS_STRATEGY.lower() == "fast":
             """Transaction mined within 60 seconds."""
