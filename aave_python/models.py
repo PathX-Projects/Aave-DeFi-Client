@@ -1,5 +1,10 @@
 from dataclasses import dataclass
 
+from .abi import ABIReference
+
+import web3.eth
+from web3 import Web3
+
 """------------------------------ Dataclass to Reference Aave Reserve Token Attributes ------------------------------"""
 @dataclass
 class ReserveToken:
@@ -11,6 +16,9 @@ class ReserveToken:
     symbol: str
     address: str
     decimals: int
+
+    def get_erc20_contract(self, w3: Web3) -> web3.eth.Contract:
+        return w3.eth.contract(address=Web3.toChecksumAddress(self.address), abi=ABIReference.erc20_abi)
 
 
 """--------------------------- Dataclass to Neatly Handle Transaction Receipts ----------------------------"""

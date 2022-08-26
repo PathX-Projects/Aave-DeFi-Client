@@ -35,6 +35,12 @@ class AaveStakingClient:
 
         self.w3 = self._connect() if web3_instance is None else web3_instance
 
+        # Set protocol data provider
+        self.data_provider_contract = self.w3.eth.contract(
+            address=Web3.toChecksumAddress(self.active_network.protocol_data_provider),
+            abi=ABIReference.protocol_data_provider
+        )
+
         if GAS_STRATEGY.lower() == "fast":
             """Transaction mined within 60 seconds."""
             self.w3.eth.setGasPriceStrategy(fast_gas_price_strategy)
@@ -128,19 +134,26 @@ class AaveStakingClient:
             raise Exception(f"Could not fetch the Aave lending pool smart contract - Error: {exc}")
 
     def approve_erc20(self, erc20_address: str, lending_pool_contract: web3.eth.Contract, amount_in_decimal_units: int,
-                      nonce=None) -> tuple:
+                      nonce: int =None, force: bool = False) -> tuple:
         """
         Approve the smart contract to take the tokens out of the wallet
         For lending pool transactions, the 'lending_pool_contract' is the lending pool contract's address.
 
         Returns a tuple of the following:
-            (transaction hash string, approval gas cost)
+            if force is True or allowance < amount_in_decimal_units:
+                (transaction hash string, approval gas cost)
+            else:
+                (None, 0)
         """
         nonce = nonce if nonce else self.w3.eth.getTransactionCount(self.wallet_address)
 
-        lending_pool_address = Web3.toChecksumAddress(lending_pool_contract.address)
         erc20_address = Web3.toChecksumAddress(erc20_address)
         erc20 = self.w3.eth.contract(address=erc20_address, abi=ABIReference.erc20_abi)
+        if not force:
+            if erc20.functions.allowance(self.wallet_address, lending_pool_contract.address).call() >= amount_in_decimal_units:
+                return None, 0
+
+        lending_pool_address = Web3.toChecksumAddress(lending_pool_contract.address)
         function_call = erc20.functions.approve(lending_pool_address, amount_in_decimal_units)
         transaction = function_call.buildTransaction(
             {
@@ -201,7 +214,7 @@ class AaveStakingClient:
             {
                 "chainId": self.active_network.chain_id,
                 "from": self.wallet_address,
-                "nonce": nonce + 1,
+                "nonce": nonce + 1 if approval_hash else nonce,
             }
         )
         signed_txn = self.w3.eth.account.sign_transaction(
@@ -278,7 +291,7 @@ class AaveStakingClient:
             {
                 "chainId": self.active_network.chain_id,
                 "from": self.wallet_address,
-                "nonce": nonce + 1,
+                "nonce": nonce + 1 if approval_hash else nonce,
             }
         )
         signed_txn = self.w3.eth.account.sign_transaction(
@@ -300,6 +313,14 @@ class AaveStakingClient:
             lending_pool_contract: The web3.eth.Contract object fetched from self.get_lending_pool() to represent the
             Aave lending pool smart contract.
             in_wei: If True, returns the collateral, debt, and borrows values in wei instead of the token
+
+        Returns:
+            totalCollateralETH: total collateral in ETH of the use (wei decimal unit)
+            totalDebtETH: total debt in ETH of the user (wei decimal unit)
+            availableBorrowsETH: borrowing power left of the user (wei decimal unit)
+            currentLiquidationThreshold: liquidation threshold of the user (1e4 format => percentage plus two decimals)
+            ltv: Loan To Value of the user (1e4 format => percentage plus two decimals)
+            healthFactor: current health factor of the user.
 
         https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool#getuseraccountdata
         """
@@ -362,6 +383,34 @@ class AaveStakingClient:
                                        'ether')
             latest_price = latest_price / quote_price
         return float(latest_price)
+
+    def get_user_reserve_data(self, reserve_token: ReserveToken) -> tuple:
+        """
+        :param reserve_token: The ReserveToken object for the desired reserve token to fetch data
+
+        :returns: tuple
+            - currentATokenBalance (int)
+            - currentStableDebt (int)
+            - currentVariableDebt (int)
+            - principalStableDebt (int)
+            - scaledVariableDebt (int)
+            - stableBorrowRate (int)
+            - liqidityRate (int)
+            - stableRateLastUpdated (int)
+            - usageAsCollateralEnabled (bool)
+        """
+        return self.data_provider_contract.functions.getUserReserveData(reserve_token.address, self.wallet_address).call()
+
+    def get_all_reserves_tokens(self) -> list[ReserveToken]:
+        # Get the list of reserves token symbols:
+        reserves_tokens = [t[0].upper() for t in self.data_provider_contract.functions.getAllReservesTokens().call()]
+
+        # Pull tokens from active networks tokenlist URL and prepare output
+        output = []
+        for token in requests.get(self.active_network.aave_tokenlist_url).json()['proto']:
+            if token['symbol'].upper() in reserves_tokens:
+                output.append(ReserveToken(**token))
+        return output
 
     def borrow(self, lending_pool_contract: web3.eth.Contract, borrow_amount: float, borrow_asset: ReserveToken,
                nonce=None, interest_rate_mode: str = "stable") -> AaveTrade:
@@ -500,7 +549,7 @@ class AaveStakingClient:
             {
                 "chainId": self.active_network.chain_id,
                 "from": self.wallet_address,
-                "nonce": nonce + 1,
+                "nonce": nonce + 1 if approval_hash else nonce,
             }
         )
         print("Repaying...")
