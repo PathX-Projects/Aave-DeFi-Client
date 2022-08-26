@@ -1,8 +1,11 @@
 import os  # For fetching environment variables
 import sys
+from dotenv import load_dotenv
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+load_dotenv()
 
 from aave_python import AaveStakingClient
+from web3.constants import MAX_INT
 
 """Obstantiate the client using the Kovan testnet"""
 aave_client_kovan = AaveStakingClient(WALLET_ADDRESS=os.getenv('WALLET_ADDRESS'),
@@ -18,13 +21,11 @@ aave_client_kovan = AaveStakingClient(WALLET_ADDRESS=os.getenv('WALLET_ADDRESS')
 """Obstantiate the instance of the Aave lending pool smart contract"""
 lending_pool_contract = aave_client_kovan.get_lending_pool()
 
-"""Get the current debt payable from the Aave client"""
-total_borrowing_power, total_debt = aave_client_kovan.get_user_data(lending_pool_contract)
-print(f"Total Outstanding Debt (in ETH): {total_debt:.18f}")
+"""Get ReserveToken object"""
+token = aave_client_kovan.get_reserve_token('DAI')
 
-"""Repay a percentage of debt payable with DAI"""
-REPAY_PERCENTAGE = 0.50  # Repay 50% of debts using DAI
-debt_asset = aave_client_kovan.get_reserve_token("DAI")  # Get the ReserveToken object for the underlying asset (DAI)
-transaction_hash = aave_client_kovan.repay_percentage(lending_pool_contract=lending_pool_contract,
-                                                      repay_percentage=REPAY_PERCENTAGE, repay_asset=debt_asset)
-print(transaction_hash)
+"""Approve Token"""
+txn, gas_spend = aave_client_kovan.approve_erc20(erc20_address=token.address,
+                                                 lending_pool_contract=lending_pool_contract,
+                                                 amount_in_decimal_units=int(MAX_INT, 16))
+print(txn, gas_spend)

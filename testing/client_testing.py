@@ -2,7 +2,7 @@ import datetime
 import os  # For fetching environment variables
 import time
 from pprint import pprint
-from aave_client import AaveStakingClient
+from aave_python import AaveStakingClient
 
 # Initialize Client:
 aave_client = AaveStakingClient(WALLET_ADDRESS=os.getenv('WALLET_ADDRESS'),
