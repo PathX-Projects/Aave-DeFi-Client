@@ -9,13 +9,15 @@ from web3 import Web3
 @dataclass
 class ReserveToken:
     """Dataclass for easily accessing Aave reserve token properties"""
+    symbol: str
+    address: str
+    decimals: int
     aTokenAddress: str
     aTokenSymbol: str
     stableDebtTokenAddress: str
     variableDebtTokenAddress: str
-    symbol: str
-    address: str
-    decimals: int
+    stableDebtTokenSymbol: str = None  # Not being used, None for mainnet to speed up loading
+    variableDebtTokenSymbol: str = None  # Not being used, None for mainnet to speed up loading
 
     def get_erc20_contract(self, w3: Web3) -> web3.eth.Contract:
         return w3.eth.contract(address=Web3.toChecksumAddress(self.address), abi=ABIReference.erc20_abi)
