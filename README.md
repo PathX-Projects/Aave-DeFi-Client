@@ -1,10 +1,10 @@
-# Aave DeFi Client for Web3.py
+# Aave V2 DeFi Client for Web3.py
 
 > NOTE: This is the beta version of the client. More docs to come...
 
 # Overview:
 
-The Aave DeFi Client is a Python wrapper for the core functionality on the Aave DeFi lending protocol built using only two 3rd party packages, web3 and requests.
+The Aave V2 DeFi Client is a Python wrapper for the core functionality on the Aave V2 DeFi lending protocol built using only two 3rd party packages, web3 and requests.
 
 Currently only the **_Ethereum mainnet_** and **_Kovan testnet_** are supported.  
 

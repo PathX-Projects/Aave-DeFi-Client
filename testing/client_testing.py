@@ -2,16 +2,16 @@ import datetime
 import os  # For fetching environment variables
 import time
 from pprint import pprint
-from aave_python import AaveStakingClient
+from aave_python import AaveClient
 
 # Initialize Client:
-aave_client = AaveStakingClient(WALLET_ADDRESS=os.getenv('WALLET_ADDRESS'),
-                                PRIVATE_WALLET_KEY=os.getenv('PRIVATE_WALLET_KEY'),
-                                KOVAN_RPC_URL=os.getenv("KOVAN_RPC_URL"),
-                                GAS_STRATEGY="medium")
+aave_client = AaveClient(wallet_address=os.getenv('wallet_address'),
+                         private_wallet_key=os.getenv('private_wallet_key'),
+                         goerli_rpc_url=os.getenv("goerli_rpc_url"),
+                         gas_strategy="medium")
 
 # Get the lending pool smart contract:
-lending_pool = aave_client.get_lending_pool()
+lending_pool = aave_client._get_lending_pool()
 
 """ ------------------------------------------- Testing Cases ------------------------------------------------ """
 # Convert ETH to WEI:
